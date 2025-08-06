@@ -14,7 +14,7 @@
 
     <stroke
         android:width="0.5dp"
-        android:color="#E5E7EB" /> <!-- Light gray border -->
+        android:color="#E5E7EB" />
 
     <size android:minHeight="100dp"/>
 </shape>

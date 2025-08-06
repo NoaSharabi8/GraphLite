@@ -1,15 +1,11 @@
 package dev.noash.graphlitelib;
 
-import android.animation.Animator;
-import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,32 +17,18 @@ import android.view.animation.OvershootInterpolator;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GraphView extends View {
+public class LineChartView extends View {
     public enum AnimationType {
         NONE, EASE_IN_OUT, FADE_IN, WAVE
     }
-    public interface OnPointClickListener {
-        void onPointClick(int index, String label, float value);
-    }
 
-    private OnPointClickListener pointClickListener;
-    public void setOnPointClickListener(OnPointClickListener listener) {
-        this.pointClickListener = listener;
-    }
-    private int selectedIndex = -1;
+    private List<GraphLine> graphLines = new ArrayList<>();
     private List<Float> referenceData = new ArrayList<>();
     private List<String> xLabels = new ArrayList<>();
-    private List<GraphLine> graphLines = new ArrayList<>();
-    private static final float TOUCH_TOLERANCE_Y = 40f;
-    private static final float TOUCH_TOLERANCE_X = 40f;
-    private List<String> yLabels = new ArrayList<>();
+    private int selectedIndex = -1;
 
     private boolean showAxis = true;
-    private boolean customYLabels = false;
     private int yLabelCount = 5;
-
-    private boolean showGradient = false;
-    private int[] gradientColors = new int[]{Color.BLUE, Color.TRANSPARENT};
 
     private float animationProgress = 1f;
     private boolean animationStarted = false;
@@ -54,16 +36,16 @@ public class GraphView extends View {
     private long animationDuration = 6000;
     private AnimationType animationType = AnimationType.NONE;
 
+    private static final float TOUCH_TOLERANCE_X = 40f;
+
     private Paint linePaint, pointPaint, fillPaint, axisPaint, labelPaint;
 
-
-
-    public GraphView(Context context) {
+    public LineChartView(Context context) {
         super(context);
         init();
     }
 
-    public GraphView(Context context, AttributeSet attrs) {
+    public LineChartView(Context context, AttributeSet attrs) {
         super(context, attrs);
         init();
     }
@@ -104,12 +86,6 @@ public class GraphView extends View {
         invalidate();
     }
 
-    public void setYLabels(List<String> labels) {
-        this.yLabels = labels != null ? labels : new ArrayList<>();
-        this.customYLabels = true;
-        invalidate();
-    }
-
     public void setShowAxis(boolean show) {
         this.showAxis = show;
         invalidate();
@@ -118,19 +94,8 @@ public class GraphView extends View {
     public void setYLabelCount(int count) {
         if (count >= 2) {
             this.yLabelCount = count;
-            this.customYLabels = false;
             invalidate();
         }
-    }
-
-    public void setShowGradient(boolean show) {
-        this.showGradient = show;
-        invalidate();
-    }
-
-    public void setGradientColors(int[] colors) {
-        this.gradientColors = colors;
-        invalidate();
     }
 
     public void setAnimationType(AnimationType type) {
@@ -142,42 +107,17 @@ public class GraphView extends View {
         this.animationDuration = durationMillis;
     }
 
-    public void refresh() {
-        invalidate();
-    }
-
     private void startAnimation() {
         animationStarted = true;
-
-
-        if (animationType == AnimationType.WAVE) {
-            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(animationDuration);
-            animator.setInterpolator(new OvershootInterpolator());
-            animator.addUpdateListener(animation -> {
-                animationProgress = (float) animation.getAnimatedValue();
-                invalidate();
-            });
-            animator.start();
-            return;
-        }
-
-        if (animationType == AnimationType.FADE_IN) {
-            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(animationDuration);
-            animator.setInterpolator(new AccelerateDecelerateInterpolator());
-            animator.addUpdateListener(animation -> {
-                animationProgress = (float) animation.getAnimatedValue();
-                invalidate();
-            });
-            animator.start();
-            return;
-        }
 
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(animationDuration);
 
-        if (animationType == AnimationType.EASE_IN_OUT) {
+        if (animationType == AnimationType.WAVE) {
+            animator.setInterpolator(new OvershootInterpolator());
+        } else if (animationType == AnimationType.FADE_IN) {
+            animator.setInterpolator(new AccelerateDecelerateInterpolator());
+        } else if (animationType == AnimationType.EASE_IN_OUT) {
             animator.setInterpolator(AnimationUtils.loadInterpolator(getContext(), android.R.interpolator.fast_out_slow_in));
         }
 
@@ -199,7 +139,6 @@ public class GraphView extends View {
                 shouldAnimateNextDraw = false;
                 return;
             } else {
-
                 animationProgress = 1f;
                 animationStarted = true;
             }
@@ -223,13 +162,11 @@ public class GraphView extends View {
             }
         }
         float range = maxValue == 0 ? 1 : maxValue;
-
         float xStep = usableWidth / (referenceData.size() - 1);
 
         for (GraphLine line : graphLines) {
             List<Float> data = line.values;
             Path path = new Path();
-            Path fillPath = new Path();
 
             float prevX = 0, prevY = 0;
 
@@ -240,17 +177,13 @@ public class GraphView extends View {
 
                 if (i == 0) {
                     path.moveTo(x, y);
-                    fillPath.moveTo(x, paddingTop + usableHeight);
-                    fillPath.lineTo(x, y);
                 } else {
                     if (line.smoothLine) {
                         float midX = (prevX + x) / 2f;
                         float midY = (prevY + y) / 2f;
                         path.quadTo(prevX, prevY, midX, midY);
-                        fillPath.lineTo(midX, midY);
                     } else {
                         path.lineTo(x, y);
-                        fillPath.lineTo(x, y);
                     }
                 }
 
@@ -258,19 +191,9 @@ public class GraphView extends View {
                 prevY = y;
             }
 
-            path.lineTo(prevX, prevY);
-            fillPath.lineTo(prevX, paddingTop + usableHeight);
-            fillPath.close();
-
             linePaint.setColor(line.color);
             linePaint.setStrokeWidth(line.lineWidth);
             canvas.drawPath(path, linePaint);
-
-            if (showGradient && line == graphLines.get(0)) {
-                LinearGradient gradient = new LinearGradient(0, paddingTop, 0, paddingTop + usableHeight, gradientColors, null, Shader.TileMode.CLAMP);
-                fillPaint.setShader(gradient);
-                canvas.drawPath(fillPath, fillPaint);
-            }
 
             if (line.showPoints) {
                 pointPaint.setColor(line.color);
@@ -295,38 +218,22 @@ public class GraphView extends View {
             }
 
             labelPaint.setTextAlign(Paint.Align.RIGHT);
-            if (customYLabels && yLabels.size() > 1) {
-                int count = yLabels.size();
-                for (int i = 0; i < count; i++) {
-                    float y = paddingTop + usableHeight - (i * (usableHeight / (count - 1)));
-                    canvas.drawText(yLabels.get(i), paddingLeft - 12f, y + labelPaint.getTextSize() / 2f, labelPaint);
-                }
-            } else {
-                for (int i = 0; i < yLabelCount; i++) {
-                    float fraction = (float) i / (yLabelCount - 1);
-                    float value = maxValue * (1f - fraction);
-                    float y = paddingTop + usableHeight * fraction;
-                    canvas.drawText(String.format("%.0f", value), paddingLeft - 12f, y + labelPaint.getTextSize() / 2f, labelPaint);
-                }
+            for (int i = 0; i < yLabelCount; i++) {
+                float fraction = (float) i / (yLabelCount - 1);
+                float value = maxValue * (1f - fraction);
+                float y = paddingTop + usableHeight * fraction;
+                canvas.drawText(String.format("%.0f", value), paddingLeft - 12f, y + labelPaint.getTextSize() / 2f, labelPaint);
             }
             labelPaint.setTextAlign(Paint.Align.CENTER);
         }
 
-        // Draw tooltip box if a point is selected
         if (selectedIndex >= 0 && selectedIndex < referenceData.size()) {
-
-            for (GraphLine line : graphLines) {
-                for (Float value : line.values) {
-                    if (value > maxValue) maxValue = value;
-                }
-            }
-
             float x = paddingLeft + selectedIndex * xStep;
 
             float boxWidth = 250f;
             float lineHeight = 60f;
             float padding = 20f;
-            float boxHeight = padding + 36f + (graphLines.size() * lineHeight) + padding*3;
+            float boxHeight = padding + 36f + (graphLines.size() * lineHeight) + padding * 3;
             float y = paddingTop + 20f;
             float boxLeft = Math.max(10f, Math.min(x - boxWidth / 2f, width - boxWidth - 10f));
             float boxTop = y;
@@ -354,7 +261,7 @@ public class GraphView extends View {
             canvas.drawText(
                     selectedIndex < xLabels.size() ? xLabels.get(selectedIndex) : "",
                     boxCenterX,
-                    boxTop + 50f +padding,
+                    boxTop + 50f + padding,
                     textPaint
             );
 
@@ -373,11 +280,10 @@ public class GraphView extends View {
                     canvas.drawText(
                             valueText,
                             boxCenterX,
-                            boxTop + 70f + (i * 60f)+ lineHeight,
+                            boxTop + 70f + (i * 60f) + lineHeight,
                             valuePaint
                     );
                 }
-
             }
         }
     }
@@ -400,11 +306,6 @@ public class GraphView extends View {
                     selectedIndex = i;
                     invalidate();
 
-                    if (pointClickListener != null) {
-                        String label = i < xLabels.size() ? xLabels.get(i) : "";
-                        float value = referenceData.get(i);
-                        pointClickListener.onPointClick(i, label, value);
-                    }
                     return true;
                 }
             }
