@@ -7,8 +7,9 @@
   <img src="https://github.com/your-username/your-repo/assets/your-image-1" width="250">
   <img src="https://github.com/your-username/your-repo/assets/your-image-2" width="250">
 </p>
-
+Link to video: 
 https://drive.google.com/file/d/17hQTX8J3S-9bavs_ISSo7h9WcxEOWmYU/view?usp=drive_link
+
 ---
 
 ## 🧩 Main Features
